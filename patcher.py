@@ -72,7 +72,9 @@ def fetch_epg(epg_url: str) -> List[Dict[str, str]]:
 
 def update_playlist(playlist_lines: List[str], channels: List[Dict[str, str]], epg_url: str) -> List[str]:
     """
-    Update the playlist with `tvg-id` and `tvg-name` attributes for each channel.
+    Update the playlist with `tvg-id`, `tvg-chno`, `tvg-name`, `tvg-logo`, `tvg-url`, `TVG-EPGSHIFT`, `TVG-EPGURL`, and `tvg-epgid` attributes for each channel.
+    If the tags are missing or empty, update them with the values from the channels list.
+    If the tags are already set, skip updating them.
     
     Args:
         playlist_lines (List[str]): The lines of the playlist file.
@@ -90,19 +92,49 @@ def update_playlist(playlist_lines: List[str], channels: List[Dict[str, str]], e
                 normalized_channel_name = normalize_channel_name(channel['channelName'])
                 normalized_line = normalize_channel_name(line)
                 if normalized_channel_name in normalized_line or normalized_channel_name.replace('channel', 'ch') in normalized_line.replace('channel', 'ch'):
-                    if 'tvg-id="' not in line:
-                        line = re.sub(r'(#EXTINF[^,]*,)', f'\\1 tvg-id="{channel["tvgId"]}" tvg-name="{channel["channelName"]}"', line)
-                    else:
-                        line = re.sub(r'tvg-id="[^"]*"', f'tvg-id="{channel["tvgId"]}"', line)
-                    if 'tvg-name="' not in line:
-                        line = re.sub(r'(#EXTINF[^,]*,)', f'\\1 tvg-name="{channel["channelName"]}"', line)
+                    # Check and update tvg-id if missing or empty
+                    if 'tvg-id="' not in line or re.search(r'tvg-id=""', line):
+                        line = re.sub(r'(#EXTINF[^,]*,)', f'\\1 tvg-id="{channel["tvgId"]}"', line, count=1)
+                    # Check and update tvg-chno if missing or empty
+                    if 'tvg-chno="' not in line or re.search(r'tvg-chno=""', line):
+                        line = re.sub(r'(#EXTINF[^,]*,)', f'\\1 tvg-chno="{channel.get("tvgChno", "unknown")}"', line, count=1)
+                    # Check and update tvg-name if missing or empty
+                    if 'tvg-name="' not in line or re.search(r'tvg-name=""', line):
+                        line = re.sub(r'(#EXTINF[^,]*,)', f'\\1 tvg-name="{channel["channelName"]}"', line, count=1)
+                    # Check and update tvg-logo if missing or empty
+                    if 'tvg-logo="' not in line or re.search(r'tvg-logo=""', line):
+                        line = re.sub(r'(#EXTINF[^,]*,)', f'\\1 tvg-logo="{channel.get("tvgLogo", "unknown")}"', line, count=1)
+                    # Check and update tvg-url if missing or empty
+                    if 'tvg-url="' not in line or re.search(r'tvg-url=""', line):
+                        line = re.sub(r'(#EXTINF[^,]*,)', f'\\1 tvg-url="{channel.get("tvgUrl", "unknown")}"', line, count=1)
+                    # Check and update TVG-EPGSHIFT if missing or empty
+                    if 'TVG-EPGSHIFT="' not in line or re.search(r'TVG-EPGSHIFT=""', line):
+                        line = re.sub(r'(#EXTINF[^,]*,)', f'\\1 TVG-EPGSHIFT="{channel.get("TVG-EPGSHIFT", "unknown")}"', line, count=1)
+                    # Check and update TVG-EPGURL if missing or empty
+                    if 'TVG-EPGURL="' not in line or re.search(r'TVG-EPGURL=""', line):
+                        line = re.sub(r'(#EXTINF[^,]*,)', f'\\1 TVG-EPGURL="{channel.get("TVG-EPGURL", "unknown")}"', line, count=1)
+                    # Check and update tvg-epgid if missing or empty
+                    if 'tvg-epgid="' not in line or re.search(r'tvg-epgid=""', line):
+                        line = re.sub(r'(#EXTINF[^,]*,)', f'\\1 tvg-epgid="{channel.get("tvgEpgid", "unknown")}"', line, count=1)
                     matched = True
                     break
             if not matched:
                 if 'tvg-id="' not in line:
-                    line = re.sub(r'(#EXTINF[^,]*,)', f'\\1 tvg-id="unknown"', line)
+                    line = re.sub(r'(#EXTINF[^,]*,)', f'\\1 tvg-id="unknown"', line, count=1)
+                if 'tvg-chno="' not in line:
+                    line = re.sub(r'(#EXTINF[^,]*,)', f'\\1 tvg-chno="unknown"', line, count=1)
                 if 'tvg-name="' not in line:
-                    line = re.sub(r'(#EXTINF[^,]*,)', f'\\1 tvg-name="unknown"', line)
+                    line = re.sub(r'(#EXTINF[^,]*,)', f'\\1 tvg-name="unknown"', line, count=1)
+                if 'tvg-logo="' not in line:
+                    line = re.sub(r'(#EXTINF[^,]*,)', f'\\1 tvg-logo="unknown"', line, count=1)
+                if 'tvg-url="' not in line:
+                    line = re.sub(r'(#EXTINF[^,]*,)', f'\\1 tvg-url="unknown"', line, count=1)
+                if 'TVG-EPGSHIFT="' not in line:
+                    line = re.sub(r'(#EXTINF[^,]*,)', f'\\1 TVG-EPGSHIFT="unknown"', line, count=1)
+                if 'TVG-EPGURL="' not in line:
+                    line = re.sub(r'(#EXTINF[^,]*,)', f'\\1 TVG-EPGURL="unknown"', line, count=1)
+                if 'tvg-epgid="' not in line:
+                    line = re.sub(r'(#EXTINF[^,]*,)', f'\\1 tvg-epgid="unknown"', line, count=1)
         updated_playlist_lines.append(line)
 
     # Ensure url-tvg is present in the #EXTM3U line
