@@ -9,9 +9,25 @@ from typing import List, Dict
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def normalize_channel_name(channel_name: str) -> str:
+    """
+    Normalize the channel name by removing '4k' and 'hd' tags, and converting it to lowercase.
+    
+    Args:
+        channel_name (str): The original channel name.
+    
+    Returns:
+        str: The normalized channel name.
+    """
     return re.sub(r'\s*\(?4k\)?\s*|\s*\(?hd\)?\s*', '', channel_name.lower())
 
 def update_url_tvg(playlist_lines: List[str], new_url: str) -> None:
+    """
+    Update the `url-tvg` attribute in the playlist's #EXTM3U line.
+    
+    Args:
+        playlist_lines (List[str]): The lines of the playlist file.
+        new_url (str): The new URL to add to the `url-tvg` attribute.
+    """
     for i, line in enumerate(playlist_lines):
         if line.startswith("#EXTM3U"):
             current_url_tvg_match = re.search(r'url-tvg="([^"]*)"', line)
@@ -26,6 +42,15 @@ def update_url_tvg(playlist_lines: List[str], new_url: str) -> None:
             break
 
 def fetch_epg(epg_url: str) -> List[Dict[str, str]]:
+    """
+    Fetch and parse the EPG XML from the given URL.
+    
+    Args:
+        epg_url (str): The URL of the EPG XML file.
+    
+    Returns:
+        List[Dict[str, str]]: A list of dictionaries containing channel names and their corresponding `tvg-id`s.
+    """
     response = requests.get(epg_url)
     response.raise_for_status()
     epg_content = response.text.replace('&', '&amp;')
@@ -46,6 +71,17 @@ def fetch_epg(epg_url: str) -> List[Dict[str, str]]:
     return channels
 
 def update_playlist(playlist_lines: List[str], channels: List[Dict[str, str]], epg_url: str) -> List[str]:
+    """
+    Update the playlist with `tvg-id` and `tvg-name` attributes for each channel.
+    
+    Args:
+        playlist_lines (List[str]): The lines of the playlist file.
+        channels (List[Dict[str, str]]): A list of dictionaries containing channel names and their corresponding `tvg-id`s.
+        epg_url (str): The URL of the EPG XML file.
+    
+    Returns:
+        List[str]: The updated lines of the playlist file.
+    """
     updated_playlist_lines = []
     for line in playlist_lines:
         if line.startswith("#EXTINF"):
@@ -79,6 +115,13 @@ def update_playlist(playlist_lines: List[str], channels: List[Dict[str, str]], e
     return updated_playlist_lines
 
 def main(playlist_file: str, epg_url: str) -> None:
+    """
+    Main function to patch the playlist file with new `tvg-id` and `tvg-name` values and `url-tvg`.
+    
+    Args:
+        playlist_file (str): The path to the playlist file.
+        epg_url (str): The URL of the EPG XML file.
+    """
     try:
         with open(playlist_file, 'r') as file:
             playlist_lines = file.readlines()
