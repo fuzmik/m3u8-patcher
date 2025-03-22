@@ -3,6 +3,7 @@ import requests
 import xml.etree.ElementTree as ET
 import re
 import logging
+import os
 from typing import List, Dict
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -28,12 +29,20 @@ def update_url_tvg(playlist_lines: List[str], new_url: str) -> None:
                 playlist_lines[i] = line.rstrip() + f' url-tvg="{new_url}"\n'
             break
 
-def fetch_epg(epg_url: str) -> List[Dict[str, str]]:
-    """Fetches and parses the EPG XML to extract channel data."""
+def fetch_epg(epg_url: str = None, epg_file: str = None) -> List[Dict[str, str]]:
+    """Fetches and parses the EPG XML from a URL or local file to extract channel data."""
     try:
-        response = requests.get(epg_url)
-        response.raise_for_status()
-        root = ET.fromstring(response.content)
+        if epg_url:
+            response = requests.get(epg_url)
+            response.raise_for_status()
+            xml_content = response.content
+        elif epg_file and os.path.exists(epg_file):
+            with open(epg_file, 'r', encoding='utf-8') as file:
+                xml_content = file.read()
+        else:
+            raise ValueError("Neither a valid URL nor a local file path was provided for the EPG data.")
+
+        root = ET.fromstring(xml_content)
         channels = []
         for channel in root.findall('channel'):
             tvg_id = channel.get('id')
@@ -49,6 +58,9 @@ def fetch_epg(epg_url: str) -> List[Dict[str, str]]:
         return channels
     except ET.ParseError as e:
         logging.error(f"XML parsing error: {e}")
+        raise
+    except Exception as e:
+        logging.error(f"Error fetching EPG data: {e}")
         raise
 
 def update_playlist(playlist_lines: List[str], channels: List[Dict[str, str]], epg_url: str) -> List[str]:
@@ -101,21 +113,28 @@ def update_playlist(playlist_lines: List[str], channels: List[Dict[str, str]], e
         updated_lines.insert(0, f'#EXTM3U url-tvg="{epg_url}"\n')
     return updated_lines
 
-def main(playlist_file: str, epg_url: str) -> None:
+def main(playlist_file: str, epg_source: str) -> None:
     try:
         with open(playlist_file, 'r') as f:
             playlist_lines = f.readlines()
-        channels = fetch_epg(epg_url)
+        
+        if epg_source.startswith(('http://', 'https://')):
+            channels = fetch_epg(epg_url=epg_source)
+            epg_url = epg_source
+        else:
+            channels = fetch_epg(epg_file=epg_source)
+            epg_url = 'local-epg'  # Placeholder URL for local EPG files
+        
         update_url_tvg(playlist_lines, epg_url)
         updated_playlist = update_playlist(playlist_lines, channels, epg_url)
         with open(playlist_file, 'w') as f:
             f.writelines(updated_playlist)
-        logging.info(f"Successfully updated '{playlist_file}' with EPG data from {epg_url}.")
+        logging.info(f"Successfully updated '{playlist_file}' with EPG data from {epg_source}.")
     except Exception as e:
         logging.error(f"Error processing playlist: {e}", exc_info=True)
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: python script.py <playlist.m3u> <epg_url>")
+        print("Usage: python script.py <playlist.m3u> <epg_url_or_file>")
         sys.exit(1)
     main(sys.argv[1], sys.argv[2])
